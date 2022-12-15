@@ -1,0 +1,136 @@
+---
+title: "ANLT_Assignment 1"
+author: "Saetbyeol Choi and Wenbo Yu"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+date: "2022-11-20"
+---
+
+# a. State the null and alternative hypotheses.
+Null Hypothesis
+
+H~0~: $\mu$~0~ = 16.7
+
+Alternative Hypothesis
+
+H~a~: $\mu$~0~ ≠ 16.7
+
+Note that this is a two-sided hypothesis.
+
+# b. Determine the probability of a Type I error.
+Type I error: rejecting the null hypothesis when it is in fact true.
+
+$\alpha$ = 0.05
+
+Thus, the probability of a Type I error is 0.05.
+
+# c. Determine the probability of a Type II error. 
+```{r}
+(z_left = qnorm(0.05/2, mean=16.7, sd=6.0/sqrt(100), lower.tail=T))
+```
+```{r}
+(z_right = qnorm(0.05/2, mean=16.7, sd=6.0/sqrt(100), lower.tail=F))
+```
+```{r}
+(beta = pnorm(z_right, mean=15.5, sd=6.0/sqrt(100), lower.tail=T) -  pnorm(z_left, mean=15.5, sd=6/sqrt(100), lower.tail=T))
+```
+
+# d. Simulate 1,000 samples, each of size 100.
+```{r}
+# solution 1
+set.seed(1)
+sample1 = replicate(1000, rnorm(100, 15.5, 6.0), simplify = FALSE)
+length(sample1)
+head(sample1,1)
+```
+```{r}
+# solution 2
+set.seed(1)
+Organizer <- list()
+for (i in 1:1000){
+  sample <- round(rnorm(100, mean = 15.5, sd = 6),1)
+  Organizer[[i]] <- sample
+}
+length(Organizer)
+head(Organizer,1)
+```
+
+# e. Determine the mean of each sample in part (d).
+```{r}
+# solution 1
+head(sapply(sample1, mean),3)
+```
+```{r}
+# solution 2
+Organizer_2 <- list()
+for(i in 1:1000){
+  xmean <- mean(Organizer[[i]])
+  Organizer_2[[i]] <- xmean
+}
+head(Organizer_2,3)
+```
+
+```{r}
+# cf).Another way to simulate sample & mean of each sample
+n = 100
+mean = 15.5
+sd = 6.0
+
+sample=list()
+samplemean=NULL
+sdsample=NULL
+
+for(i in 1:1000){
+  sample[[i]] = rnorm(n,mean,sd)
+  samplemean[i]=mean(sample[[i]])
+}
+
+head(sample,1)
+head(samplemean,1)
+```
+
+# f. For the 1,000 samples obtained in part (d), about how many would you expect to lead to nonrejection of the null hypothesis? Explain your answer. 
+```{r}
+beta*1000
+```
+
+# g. For the 1,000 samples obtained in part (d), determine the number that lead to nonrejection of the null
+hypothesis.
+```{r}
+# solution 1
+sum(samplemean > z_left & samplemean < z_right)
+```
+```{r}
+# solution 2 
+reject_number <- 0
+for(i in 1:1000){
+  if (Organizer_2[[i]] < 15.52402 || Organizer_2[[i]]> 17.87598){
+    reject_number <- reject_number + 1
+  }
+}
+1000-reject_number
+```
+
+# h. Compare your answers from parts (f) and (g), and comment on any observed difference.
+The expected number of non-rejection is 483.9947 and the non_reject number is 483(solution1)/456(solution2).
+They are quite close on the slope of 1000.
+The difference is quite normal, it's like an uneven coin-tossing problem having a probability of head equal to 0.4839947 and probability of tail equal to (1-0.4839947). If we extend the number of samples, the percentage of non-rejection will be closer to 0.4839947.
+
+# i. Plot the power curve for the range of true µ between 14 to 19. Interpret your plot.
+```{r}
+mu = 16.7
+popSigma = 6.0
+n = 100
+alpha = 0.05
+# Critical point
+c = qnorm(alpha, mean=mu, sd=popSigma/sqrt(n))
+trueMu = seq(14,19,by=0.1)
+beta = pnorm(z_right, mean=trueMu, sd=popSigma/sqrt(n)) - pnorm(z_left, mean=trueMu, sd=popSigma/sqrt(n))
+power = 1-beta
+
+plot(trueMu, power, 'l',
+     xlab=expression(mu), 
+     main=expression(paste("Power Curve (",alpha, "=0.05, n=100)")))
+```
