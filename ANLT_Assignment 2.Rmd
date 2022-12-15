@@ -1,0 +1,167 @@
+---
+title: "ANLT_Assignment 2"
+author: "Saetbyeol Choi and Francis Kwame Segbe"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+date: "2022-11-23"
+---
+# Part 1
+```{r}
+suppressMessages(library(dplyr, warn.conflict = FALSE, quietly = TRUE))
+suppressWarnings(suppressMessages(library(gtsummary)))
+library(forcats)
+```
+
+```{r}
+df = read.csv("C:\\Users\\sbyeo\\Downloads\\collegeData.csv")
+str(df)
+```
+
+## a_Case 1. For the t-test you must create a table reporting the mean of each group along with the p-value.
+```{r}
+d = df[,-c(1:4)]
+
+t.table <- NULL
+t.table <- as.data.frame(t.table)
+
+for (i in 1:13) {
+  
+  # t.test()
+  t = t.test(d[which(d$gradFlag == 0), i], d[which(d$gradFlag == 1), i])
+  
+  # Put the name
+  t.table[i,1] = names(d)[i]
+  
+  # Drop-Group mean
+  t.table[i,2] = round(t$estimate[1],2)  #Results1 <- mean(d2[which(d2$gradFlag == 0), 1])
+  
+  # Grad-Group mean
+  t.table[i,3] = round(t$estimate[2],2)  #Results2 <- mean(d2[which(d2$gradFlag == 1), 1])
+  
+  # P value
+  t.table[i,4] = round(t$p.value,3)
+  
+  rm(t)
+}
+
+# Add column names
+names(t.table) = c("Feature", "Mean(Drop-Group)", "Mean(Grad-Group)", "p.value")
+
+t.table
+```
+
+## a_Case 2.
+```{r}
+df %>%
+  select(-SexCode,-MaritalCode,-PrevEdCode, -DDVeteran) %>%
+  tbl_summary(by = gradFlag,
+              statistic = list(all_continuous()  ~ "{mean}"),
+              digits = list(all_continuous()  ~ c(2, 2)),
+              type = everything() ~ "continuous") %>%
+  add_p(test = list(all_continuous()  ~ "t.test"),
+    pvalue_fun = function(x) style_pvalue(x, digits = 3)) %>%
+  modify_header(label="**Feature**") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**gradFlag**") %>%
+  modify_footnote(all_stat_cols() ~ "0: Mean(Drop-Group), 1: Mean(Grad-Group)")
+```
+
+## b_Case 1. For the chi-square test you only need to report the p-values in a table.
+```{r}
+df %>% count(df$MaritalCode)
+df %>% count(df$PrevEdCode)
+```
+
+```{r}
+# Filter out levels that have less than 10 observations
+d1 <- droplevels(df[!df$PrevEdCode == 'GED',])
+d2 <- droplevels(d1[!d1$PrevEdCode == 'POSTHS',])
+d3 <- droplevels(d2[!d2$PrevEdCode == 'UN',])
+levels(factor(d3$PrevEdCode))
+```
+```{r}
+d4 = d3[,c(1:4)]
+suppressWarnings(d4%>%
+  summarise_each(funs(chisq.test(.,
+                                 d3$gradFlag)$p.value), -one_of("gradFlag")))
+```
+## b_Case 2.
+```{r}
+d3 %>%
+  # selecting the categorical variables only
+  select(gradFlag, SexCode, MaritalCode, PrevEdCode, DDVeteran) %>%
+  # summarizing data by treatment type, all variables are categorical
+  tbl_summary(by = gradFlag, 
+              type = everything() ~ "categorical") %>%
+  # comparing groups
+  add_p(test = list(all_categorical() ~ "chisq.test"),
+    pvalue_fun = function(x) style_pvalue(x, digits = 3)
+  )%>%
+  modify_header(label="**Feature**") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**gradFlag**") %>%
+  modify_footnote(all_stat_cols() ~ "0: Drop-Group, 1: Grad-Group")
+```  
+
+## c. You must write a paragraph summarizing the results as if you were to present it to the stakeholders (Dean, Department Chair, etc). 
+> In t-test, the null hypothesis is that there is no difference between the mean of drop-group and the mean of grad-group. This means that for the alternative hypothesis, there is a difference between the mean of the two groups and from that we can see what makes successful students different from the drops.<br>
+<br>
+From the result, at the 5% significance level, we fail to reject the null hypothesis on DaysEnrollToStart, AgeAtStart, AgeAtGrad, MinEFC and MaxENTEntranceScore since p_value in these features is larger than 0.05. The data does not provide sufficient evidence to conclude that there is a difference between the mean of drop-group and the mean of grad-group on these features. 
+For the other features, because the P-values are less than 0.05 we can reject the null hypothesis that there is no difference in the mean of the drop-group and grad-group. Based on this we can conclude that the mean of two groups are different and the facotrs contribute to a student being more successful and graduating are GPA, MinutesAttended, HoursAttempt, HoursEarned, HoursReq, MinutesAbsent, TransferCredits and TransferGPA.<br>
+<br>
+In chi-square, the null and alternative hypotheses are, respectively,
+H~0~ : Two groups in each feature are not associated.
+H~a~ : Two groups in each feature are associated.
+By using technology, we found that P<0.001 on SexCode, MaritalCode and PrevEdCode. Because the P-value is less than 0.05, we can reject null hypothesis. We can conclude that SexCode, MaritalCode and PrevEdCode are associated with whether students drop or graduate.
+
+
+# Part 2
+## a. You must print the summary of the model, i.e. the p-values, adjusted R2, etc.
+```{r}
+# Filter out zero GPA’s
+dd = df[df$GPA != 0, ]
+min(dd$GPA)
+```
+
+```{r}
+# Only include features in the model that are reasonable for predicting GPA of students prior to their start
+dd2 = dd[,-c(7,9,10,11,12,13,18)]
+head(dd2)
+```
+
+```{r}
+model1 = lm(GPA ~., data = dd2)
+summary(model1)
+```
+> From the result, at the 5% significance level p-value is less than 0.05 and  we can conclude that at least one of the population regression coefficients is not zero. Thus we say that, taken together, these features are useful in predicting the GPA of students prior to their start.
+Based on the value of adjusted R-squared, we can conclude that only 26% of the variation in GPA is explained by the variation in predictor features.
+
+```{r}
+# Build the second multiple regression model with the features have p-value less than 0.05 form the model 1
+model2 = lm(GPA ~ SexCode+PrevEdCode+TransferCredits+TransferGPA+MinEFC+MaxENTEntranceScore, data = dd2)
+summary(model2)
+```
+> From the result, p-value is less than 0.05 and  we can conclude that at least one of the population regression coefficients is not zero. Taken together, features are useful in predictig the GPA of students prior to their start. However compare to model1, this model explains 23% of the variation in GPA by the variation in predictor features.
+
+## b. You must perform complete residual analysis and comment on the LINE assumptions. You don’t need to perform any further action in terms of transformation or eliminating influential points, but must explain your observations.
+```{r}
+plot(model1, which = 1)
+```
+
+>Residuals do not fall roughly in a horizontal band that is not centered and symmetric about the x-axis.
+
+```{r}
+res = residuals(model1)
+#create Q-Q plot for residuals
+qqnorm(res)
+qqline(res)
+```
+
+>The departure from linearity is sufficient for some concern and we can say that the residuals is not roughly linear. Violation of normality can be seen in qqplot. 
+
+## c. You must write a paragraph summarizing the results as if you were to present it to the stakeholders (Dean, Department Chair, etc).
+> From the both multiple regression models, based on the fact that p-value is less than 0.05, respectively, they provide sufficient evidence to conclude that at least one of the population regression coefficients is not zero. Based on the value of adjusted R-squared, we can say that 26% of the variation in GPA is explained by the variation in predictor features in model1 when model2 is 23%.<br>
+<br>
+Thus, We can conclude that, taken together, SexCode, MaritalCode, PrevEdCode, DDVeteran, DaysEnrollToStart, AgeAtStart, TransferCredits, TransferGPA, MinEFC and MaxENTEntranceScore are useful in predicting the GPA of students prior to their start.<br>
+<br>
+In residual analysis for the regression model, we can conclude that the assumptions for regression inferences are not met. Since a plot of the residuals do not fall roughly in a horizontal band. Also, the violation of normality can be seen in qqplot and from this, we can say that the residuals is not roughly linear.
